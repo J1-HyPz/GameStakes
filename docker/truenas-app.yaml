@@ -1,24 +1,29 @@
 # GameStakes on TrueNAS SCALE — Custom App ("Install via YAML").
 #
-# Before installing, create datasets and note their owner's UID/GID:
-#   /mnt/<pool>/apps/gamestakes/config
-#   /mnt/<pool>/apps/gamestakes/data
-#   /mnt/<pool>/apps/gamestakes/logs
-# Then set PUID/PGID below to match that owner, and replace <pool> throughout.
+# Before installing:
+#   1. Create three datasets (Storage → Datasets), e.g. under
+#      /mnt/<pool>/apps/gamestakes/ : config, data, logs
+#   2. Note the UID/GID that owns them (`ls -n` on the dataset) and set
+#      PUID/PGID below to match. A mismatch is the usual cause of a container
+#      that restarts on first start.
+#   3. Replace <pool> in the three volume paths with your pool name.
 #
-# This is the slim configuration: one container, SQLite, no Redis. It is the
-# right default for a home server — the database is small and the app is
-# single-user. Switch to PostgreSQL only if you want multiple workers.
+# The UI is published on host port 8100 (container listens on 8080).
 #
-# Provider API keys go in the environment block. Without them the app still
-# runs and the UI shows which features are unavailable.
+# This is the slim configuration: one container, SQLite, no Redis — the right
+# default for a home server, since the database is small and the app is
+# single-user. Add PostgreSQL only if you want multiple workers.
+#
+# Provider API keys are optional: without them the app still runs and the UI
+# shows which features are unavailable.
 services:
   gamestakes:
-    image: ghcr.io/j1-hypz/gamestakes:latest
+    image: ghcr.io/j1-hypz/gamestakes:0.1.0
     container_name: gamestakes
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      # host:container — change the left number to move the UI, not the right.
+      - "8100:8080"
     environment:
       # --- storage -----------------------------------------------------
       DATABASE_URL: sqlite+aiosqlite:////data/gamestakes.db
@@ -33,14 +38,16 @@ services:
       CURRENCY: GBP
       LOG_LEVEL: INFO
 
-      # --- staking: set a bankroll before the builder will size a bet --
+      # --- staking: the builder will not size a bet until this is set ---
       BANKROLL: "0"
       KELLY_MULTIPLIER: "0.25"
       DAILY_EXPOSURE_CAP: "0.05"
       WEEKLY_EXPOSURE_CAP: "0.15"
 
       # --- provider keys (optional; see .env.example for where to get) --
+      # Free and instant: https://www.football-data.org/client/register
       # FOOTBALL_DATA_ORG_KEY: ""
+      # Required for the bet builder: https://the-odds-api.com
       # THE_ODDS_API_KEY: ""
       # ODDS_REGION: "uk"
       # BALLDONTLIE_KEY: ""
@@ -49,7 +56,7 @@ services:
       # --- behind a reverse proxy on a subpath --------------------------
       # ROOT_PATH: /gamestakes
 
-      # --- optional single-user login (recommended if exposed) ----------
+      # --- optional single-user login (set if reachable off your LAN) ---
       # AUTH_ENABLED: "true"
       # AUTH_PASSWORD: "change-me"
       # JWT_SECRET: "generate with: openssl rand -hex 32"

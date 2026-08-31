@@ -187,7 +187,11 @@ systems.
 3. **Replace `<pool>`** in the three volume paths.
 4. **Set a bankroll** (`BANKROLL`) once you are ready to size bets — the
    builder deliberately refuses to recommend a stake without one.
-5. Install, then open `http://<truenas-ip>:8080`.
+5. Install, then open `http://<truenas-ip>:8100`.
+
+The manifest publishes the UI on host port **8100**. To move it, change only
+the left-hand number in `ports` (`"8100:8080"`) — the container always listens
+on 8080 internally.
 
 Behind a reverse proxy on a subpath, set `ROOT_PATH` (e.g. `/gamestakes`) and
 forward the `Host` and `X-Forwarded-*` headers. If the app is reachable from
