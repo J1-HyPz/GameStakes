@@ -1,0 +1,65 @@
+# Seeded catalogue of sports and leagues. Add a league here — no code change
+# needed. Slugs are permanent identifiers; renaming a slug orphans data.
+#
+# competition_type: league | cup | international | organisation
+# tier: standing within the sport's hierarchy in its own country (1 = top
+#   division). US college and spring leagues sit below the NFL/NBA at 2/3.
+#   Omitted where no hierarchy applies (cups, international tournaments).
+sports:
+  - slug: football
+    name: Football
+    kind: team
+    leagues:
+      - { slug: premier-league, name: Premier League, short_name: EPL, country: England, competition_type: league, tier: 1 }
+      - { slug: championship, name: Championship, short_name: EFL Champ, country: England, competition_type: league, tier: 2 }
+      - { slug: la-liga, name: La Liga, country: Spain, competition_type: league, tier: 1 }
+      - { slug: serie-a, name: Serie A, country: Italy, competition_type: league, tier: 1 }
+      - { slug: bundesliga, name: Bundesliga, country: Germany, competition_type: league, tier: 1 }
+      - { slug: ligue-1, name: Ligue 1, country: France, competition_type: league, tier: 1 }
+      - { slug: eredivisie, name: Eredivisie, country: Netherlands, competition_type: league, tier: 1 }
+      - { slug: primeira-liga, name: Primeira Liga, country: Portugal, competition_type: league, tier: 1 }
+      - { slug: champions-league, name: UEFA Champions League, short_name: UCL, competition_type: cup }
+      - { slug: europa-league, name: UEFA Europa League, short_name: UEL, competition_type: cup }
+      - { slug: conference-league, name: UEFA Conference League, short_name: UECL, competition_type: cup }
+      - { slug: mls, name: Major League Soccer, short_name: MLS, country: USA, competition_type: league, tier: 1 }
+      - { slug: liga-mx, name: Liga MX, country: Mexico, competition_type: league, tier: 1 }
+      - { slug: saudi-pro-league, name: Saudi Pro League, country: Saudi Arabia, competition_type: league, tier: 1 }
+      - { slug: scottish-premiership, name: Scottish Premiership, country: Scotland, competition_type: league, tier: 1 }
+      - { slug: world-cup, name: FIFA World Cup, competition_type: international }
+      - { slug: euros, name: UEFA European Championship, short_name: Euros, competition_type: international }
+      - { slug: nations-league, name: UEFA Nations League, competition_type: international }
+      - { slug: afcon, name: Africa Cup of Nations, short_name: AFCON, competition_type: international }
+      - { slug: copa-america, name: Copa América, competition_type: international }
+  - slug: american-football
+    name: American Football
+    kind: team
+    leagues:
+      - { slug: nfl, name: NFL, country: USA, competition_type: league, tier: 1 }
+      - { slug: ncaa-fbs, name: NCAA Football (FBS), short_name: CFB, country: USA, competition_type: league, tier: 2 }
+      - { slug: ufl, name: UFL, country: USA, competition_type: league, tier: 3 }
+      - { slug: cfl, name: CFL, country: Canada, competition_type: league, tier: 1 }
+  - slug: basketball
+    name: Basketball
+    kind: team
+    leagues:
+      - { slug: nba, name: NBA, country: USA, competition_type: league, tier: 1 }
+      - { slug: wnba, name: WNBA, country: USA, competition_type: league, tier: 1 }
+      - { slug: ncaa-mbb, name: "NCAA Basketball (Men's)", short_name: CBB, country: USA, competition_type: league, tier: 2 }
+      - { slug: ncaa-wbb, name: "NCAA Basketball (Women's)", country: USA, competition_type: league, tier: 2 }
+      - { slug: euroleague, name: EuroLeague, competition_type: league, tier: 1 }
+      - { slug: nbl, name: NBL, country: Australia, competition_type: league, tier: 1 }
+      - { slug: liga-acb, name: Liga ACB, country: Spain, competition_type: league, tier: 1 }
+  - slug: boxing
+    name: Boxing
+    kind: combat
+    leagues:
+      # Boxing is fighter-centric; one umbrella "league" holds all pro bouts,
+      # with the sanctioning body/card recorded on the fixture itself.
+      - { slug: pro-boxing, name: Professional Boxing, competition_type: organisation }
+  - slug: mma
+    name: MMA
+    kind: combat
+    leagues:
+      - { slug: ufc, name: UFC, competition_type: organisation, tier: 1 }
+      - { slug: pfl, name: PFL (incl. Bellator), short_name: PFL, competition_type: organisation, tier: 2 }
+      - { slug: one-championship, name: ONE Championship, short_name: ONE, competition_type: organisation, tier: 2 }

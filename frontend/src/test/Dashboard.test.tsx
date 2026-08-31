@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { HealthResponse } from '../lib/api'
+import type { HealthResponse, Sport } from '../lib/api'
 import Dashboard from '../pages/Dashboard'
 
 const healthFixture: HealthResponse = {
@@ -11,6 +11,29 @@ const healthFixture: HealthResponse = {
   database: { status: 'up', detail: null },
   redis: { status: 'disabled', detail: 'REDIS_URL not configured' },
   providers: [],
+}
+
+const sportsFixture: Sport[] = [
+  { id: 1, slug: 'football', name: 'Football', kind: 'team', league_count: 20 },
+  { id: 5, slug: 'mma', name: 'MMA', kind: 'combat', league_count: 3 },
+]
+
+function jsonResponse(body: unknown) {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+function stubApi() {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/health') return Promise.resolve(jsonResponse(healthFixture))
+      if (url === '/api/sports') return Promise.resolve(jsonResponse(sportsFixture))
+      return Promise.resolve(new Response('not found', { status: 404 }))
+    }),
+  )
 }
 
 function renderDashboard() {
@@ -30,15 +53,7 @@ afterEach(() => {
 
 describe('Dashboard', () => {
   it('renders component statuses from /api/health', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify(healthFixture), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
-    )
+    stubApi()
 
     renderDashboard()
 
@@ -46,6 +61,16 @@ describe('Dashboard', () => {
     expect(screen.getByText('up')).toBeInTheDocument()
     expect(screen.getByText('disabled')).toBeInTheDocument()
     expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/health')
+  })
+
+  it('renders sport coverage from /api/sports', async () => {
+    stubApi()
+
+    renderDashboard()
+
+    expect(await screen.findByText('Coverage')).toBeInTheDocument()
+    expect(screen.getByText('Football')).toBeInTheDocument()
+    expect(screen.getByText('20 leagues')).toBeInTheDocument()
   })
 
   it('shows an error state when the API is unreachable', async () => {

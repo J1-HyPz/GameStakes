@@ -9,6 +9,8 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+
+import app.db.types  # custom column types are rendered fully qualified
 ${imports if imports else ""}
 
 revision: str = ${repr(up_revision)}

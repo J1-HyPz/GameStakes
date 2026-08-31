@@ -1,10 +1,31 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetchHealth, type ComponentStatus } from '../lib/api'
+import { fetchHealth, fetchSports, type ComponentStatus } from '../lib/api'
 
 const STATUS_STYLES: Record<ComponentStatus['status'], string> = {
   up: 'bg-edge-positive/15 text-edge-positive',
   down: 'bg-edge-negative/15 text-edge-negative',
   disabled: 'bg-white/10 text-slate-400',
+}
+
+function CoverageCard() {
+  const { data: sports } = useQuery({ queryKey: ['sports'], queryFn: fetchSports })
+
+  if (!sports) return null
+  return (
+    <div className="rounded-lg border border-white/10 bg-surface-raised p-4">
+      <h3 className="text-sm font-medium text-slate-300">Coverage</h3>
+      <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
+        {sports.map((s) => (
+          <li key={s.slug} className="flex items-baseline justify-between text-xs">
+            <span className="text-slate-400">{s.name}</span>
+            <span className="text-slate-500">
+              {s.league_count} {s.league_count === 1 ? 'league' : 'leagues'}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
 }
 
 function StatusCard({ name, component }: { name: string; component: ComponentStatus }) {
@@ -61,6 +82,7 @@ export default function Dashboard() {
         <StatusCard name="Database" component={data.database} />
         <StatusCard name="Redis cache" component={data.redis} />
       </div>
+      <CoverageCard />
       <div className="rounded-lg border border-white/10 bg-surface-raised p-4">
         <h3 className="text-sm font-medium text-slate-300">Data providers</h3>
         {data.providers.length === 0 ? (

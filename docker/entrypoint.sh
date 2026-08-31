@@ -34,5 +34,8 @@ fi
 echo "[entrypoint] running database migrations"
 $RUN_AS python -m app.db.migrate
 
+echo "[entrypoint] seeding sports and leagues"
+$RUN_AS python -m app.ingest.seed
+
 echo "[entrypoint] starting GameStakes on port $PORT"
 exec $RUN_AS python -m uvicorn app.main:app --host 0.0.0.0 --port "$PORT"

@@ -49,6 +49,9 @@ jobs:
           python -m app.db.migrate
           alembic downgrade base
           alembic upgrade head
+          alembic check
+          python -m app.ingest.seed
+          python -m app.ingest.seed
       - name: OpenAPI types are up to date
         run: |
           cd backend && python -m app.scripts.export_openapi > openapi.json && cd ..

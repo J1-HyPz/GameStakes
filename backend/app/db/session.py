@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
 
@@ -34,7 +35,10 @@ def get_engine() -> AsyncEngine:
     if _engine is None:
         settings = get_settings()
         ensure_sqlite_dir(settings.database_url)
-        _engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+        kwargs: dict[str, object] = {"pool_pre_ping": True}
+        if settings.database_pool == "null":
+            kwargs = {"poolclass": NullPool}
+        _engine = create_async_engine(settings.database_url, **kwargs)
     return _engine
 
 

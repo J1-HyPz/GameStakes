@@ -13,9 +13,29 @@ recommendations; and tracks every prediction against real outcomes.
 > bet. Models can be wrong; losing runs are expected even with a real edge.
 > Nothing in this tool is financial advice.
 
-**Status: Phase 1 (skeleton).** The stack runs — API, SPA, database migrations,
-Docker, CI — but predictions, providers and the bet builder land in later phases.
-See [Build phases](#build-phases).
+**Status: Phase 2 (data model).** The stack runs and the full schema is in
+place — 25 tables covering fixtures, odds time-series, simulations, bets and
+settlement, with 35 leagues across 5 sports seeded from YAML. Data providers,
+models and the bet builder land in later phases. See
+[Build phases](#build-phases).
+
+### Data model notes
+
+- **Combat sports are first-class.** A fixture is a match *or* a bout; its
+  participants are two teams *or* two fighters (enforced by a CHECK
+  constraint), with method/round detail in `bout_results`.
+- **Odds are append-only.** Every capture is a new `odds_snapshots` row —
+  closing line value needs the price history, not the latest price.
+- **Predictions are reproducible.** Each records its model version, RNG seed,
+  input feature hash and generation time.
+- **Entity resolution never guesses.** Provider names resolve by external id,
+  learned alias, exact match, then fuzzy match — and only when the score clears
+  a threshold, beats the runner-up by a margin, and neither name carries extra
+  tokens (so a women's or B team can't be mapped onto the first team).
+  Everything else goes to a review queue at `/api/resolution/queue`.
+- **Leagues are configuration.** Add one to
+  [`leagues.yaml`](backend/app/ingest/seeds/leagues.yaml) — no code change.
+  Seeding is idempotent; removed leagues deactivate rather than delete.
 
 ## Quick start
 
@@ -107,7 +127,7 @@ CI fails if `frontend/src/types/api.ts` is stale.
 | Phase | Scope | Status |
 |---|---|---|
 | 1 | Skeleton: Docker, CI, health endpoint, SPA serving, migrations | ✅ |
-| 2 | Full data model + entity resolution | — |
+| 2 | Full data model + entity resolution | ✅ |
 | 3 | Provider adapters, rate limiting, failover, settings page | — |
 | 4 | Schedule UI with live scores | — |
 | 5 | Football model (Dixon-Coles + Elo) and simulation engine | — |

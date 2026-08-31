@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     root_path: str = ""
 
     database_url: str = "sqlite+aiosqlite:///./data/gamestakes.db"
+    # "default" (pooled) or "null" (fresh connection per checkout — used by the
+    # test suite to avoid reusing connections across event loops).
+    database_pool: str = "default"
     redis_url: str | None = None
 
     auth_enabled: bool = False

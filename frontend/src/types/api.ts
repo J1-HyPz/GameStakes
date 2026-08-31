@@ -9,12 +9,41 @@ export interface paths {
     /** Health */
     get: operations["health_api_health_get"];
   };
+  "/api/sports": {
+    /** List Sports */
+    get: operations["list_sports_api_sports_get"];
+  };
+  "/api/leagues": {
+    /** List Leagues */
+    get: operations["list_leagues_api_leagues_get"];
+  };
+  "/api/leagues/{slug}": {
+    /** Get League */
+    get: operations["get_league_api_leagues__slug__get"];
+  };
+  "/api/resolution/queue": {
+    /** List Queue */
+    get: operations["list_queue_api_resolution_queue_get"];
+  };
+  "/api/resolution/queue/{item_id}/resolve": {
+    /** Resolve Item */
+    post: operations["resolve_item_api_resolution_queue__item_id__resolve_post"];
+  };
+  "/api/resolution/queue/{item_id}/ignore": {
+    /** Ignore Item */
+    post: operations["ignore_item_api_resolution_queue__item_id__ignore_post"];
+  };
 }
 
 export type webhooks = Record<string, never>;
 
 export interface components {
   schemas: {
+    /**
+     * CompetitionType
+     * @enum {string}
+     */
+    CompetitionType: "league" | "cup" | "international" | "organisation";
     /** ComponentStatus */
     ComponentStatus: {
       /**
@@ -24,6 +53,16 @@ export interface components {
       status: "up" | "down" | "disabled";
       /** Detail */
       detail?: string | null;
+    };
+    /**
+     * EntityType
+     * @enum {string}
+     */
+    EntityType: "team" | "player" | "league" | "fixture";
+    /** HTTPValidationError */
+    HTTPValidationError: {
+      /** Detail */
+      detail?: components["schemas"]["ValidationError"][];
     };
     /** HealthResponse */
     HealthResponse: {
@@ -41,6 +80,26 @@ export interface components {
       /** Providers */
       providers: components["schemas"]["ProviderStatus"][];
     };
+    /** LeagueOut */
+    LeagueOut: {
+      /** Id */
+      id: number;
+      /** Slug */
+      slug: string;
+      /** Name */
+      name: string;
+      /** Short Name */
+      short_name: string | null;
+      /** Country */
+      country: string | null;
+      competition_type: components["schemas"]["CompetitionType"];
+      /** Tier */
+      tier: number | null;
+      /** Is Active */
+      is_active: boolean;
+      /** Sport Slug */
+      sport_slug: string;
+    };
     /** ProviderStatus */
     ProviderStatus: {
       /** Name */
@@ -52,6 +111,67 @@ export interface components {
       status: "up" | "down" | "disabled" | "degraded";
       /** Detail */
       detail?: string | null;
+    };
+    /** QueueItemOut */
+    QueueItemOut: {
+      /** Id */
+      id: number;
+      entity_type: components["schemas"]["EntityType"];
+      /** Sport Id */
+      sport_id: number | null;
+      /** League Id */
+      league_id: number | null;
+      /** Provider */
+      provider: string;
+      /** Raw Name */
+      raw_name: string;
+      /** External Id */
+      external_id: string | null;
+      /** Candidates */
+      candidates: unknown[];
+      status: components["schemas"]["ResolutionStatus"];
+      /** Resolved Entity Id */
+      resolved_entity_id: number | null;
+    };
+    /**
+     * ResolutionStatus
+     * @enum {string}
+     */
+    ResolutionStatus: "pending" | "resolved" | "ignored";
+    /** ResolveIn */
+    ResolveIn: {
+      /** Entity Id */
+      entity_id: number;
+    };
+    /**
+     * SportKind
+     * @enum {string}
+     */
+    SportKind: "team" | "combat";
+    /** SportOut */
+    SportOut: {
+      /** Id */
+      id: number;
+      /** Slug */
+      slug: string;
+      /** Name */
+      name: string;
+      kind: components["schemas"]["SportKind"];
+      /** League Count */
+      league_count: number;
+    };
+    /** ValidationError */
+    ValidationError: {
+      /** Location */
+      loc: (string | number)[];
+      /** Message */
+      msg: string;
+      /** Error Type */
+      type: string;
+      /** Input */
+      input?: unknown;
+      /** Context */
+      ctx?: Record<string, never>;
     };
   };
   responses: never;
@@ -74,6 +194,133 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["HealthResponse"];
+        };
+      };
+    };
+  };
+  /** List Sports */
+  list_sports_api_sports_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["SportOut"][];
+        };
+      };
+    };
+  };
+  /** List Leagues */
+  list_leagues_api_leagues_get: {
+    parameters: {
+      query?: {
+        sport?: string | null;
+        include_inactive?: boolean;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["LeagueOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Get League */
+  get_league_api_leagues__slug__get: {
+    parameters: {
+      path: {
+        slug: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["LeagueOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** List Queue */
+  list_queue_api_resolution_queue_get: {
+    parameters: {
+      query?: {
+        status?: components["schemas"]["ResolutionStatus"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["QueueItemOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Resolve Item */
+  resolve_item_api_resolution_queue__item_id__resolve_post: {
+    parameters: {
+      path: {
+        item_id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ResolveIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["QueueItemOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Ignore Item */
+  ignore_item_api_resolution_queue__item_id__ignore_post: {
+    parameters: {
+      path: {
+        item_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["QueueItemOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };
