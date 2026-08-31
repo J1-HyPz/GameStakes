@@ -173,40 +173,115 @@ CI fails if `frontend/src/types/api.ts` is stale.
 
 ## TrueNAS SCALE
 
-Use [`docker/truenas-app.yaml`](docker/truenas-app.yaml) with **Apps → Discover
-→ Custom App → Install via YAML**. The image is multi-arch (amd64 + arm64),
-published to `ghcr.io/j1-hypz/gamestakes`, so it runs on both Intel and ARM
-systems.
+The image is multi-arch (amd64 + arm64) and published publicly to
+`ghcr.io/j1-hypz/gamestakes`, so no registry credentials are needed.
 
-1. **Create datasets** for the three volumes, e.g. under
-   `/mnt/<pool>/apps/gamestakes/`: `config`, `data` and `logs`.
-2. **Note the dataset owner's UID and GID** (`ls -n` on the dataset shows
-   them) and set `PUID`/`PGID` in the manifest to match. Getting this wrong is
-   the usual cause of a permission error on first start — the container drops
-   to that user before touching the volumes.
-3. **Replace `<pool>`** in the three volume paths.
-4. **Set a bankroll** (`BANKROLL`) once you are ready to size bets — the
-   builder deliberately refuses to recommend a stake without one.
-5. Install, then open `http://<truenas-ip>:8100`.
+### 1. Create the datasets
 
-The manifest publishes the UI on host port **8100**. To move it, change only
-the left-hand number in `ports` (`"8100:8080"`) — the container always listens
-on 8080 internally.
+**Storage → Datasets**, select your pool, and add three datasets under a
+`gamestakes` parent (Add Dataset, one level at a time):
 
-Behind a reverse proxy on a subpath, set `ROOT_PATH` (e.g. `/gamestakes`) and
-forward the `Host` and `X-Forwarded-*` headers. If the app is reachable from
-outside your LAN, set `AUTH_ENABLED=true` with an `AUTH_PASSWORD` and a
-`JWT_SECRET` (`openssl rand -hex 32`).
+```
+<pool>/apps/gamestakes/config
+<pool>/apps/gamestakes/data
+<pool>/apps/gamestakes/logs
+```
+
+`data` holds the SQLite database and the stored simulation draws, so it is the
+one worth including in a snapshot task.
+
+### 2. Find the UID and GID that own them
+
+This is the step that most often goes wrong. From **System → Shell**:
+
+```bash
+ls -na /mnt/<pool>/apps/gamestakes
+```
+
+The third and fourth columns are the numeric UID and GID. Use those exact
+numbers for `PUID`/`PGID` in the manifest. If they do not match, the container
+cannot write to `/data`, migrations fail, and the app restarts in a loop.
+
+If the datasets are owned by root (`0:0`) and you would rather not run as root,
+change the owner first: **Datasets → (select) → Permissions → Edit**, or
+
+```bash
+chown -R 1000:1000 /mnt/<pool>/apps/gamestakes
+```
+
+### 3. Install the app
+
+**Apps → Discover Apps → Custom App**, then choose **Install via YAML** if your
+build offers it (TrueNAS SCALE 24.10 "Electric Eel" and later, which run Docker
+natively). Paste [`docker/truenas-app.yaml`](docker/truenas-app.yaml), changing:
+
+- `<pool>` in the three volume paths → your pool name
+- `PUID` / `PGID` → the numbers from step 2
+
+On **older, k3s-based releases** (23.10 and earlier) there is no YAML installer.
+Use **Launch Docker Image** and transcribe the same values into the form:
+image `ghcr.io/j1-hypz/gamestakes:0.1.0`, port forward host `8100` →
+container `8080`, three host-path volumes, and the environment variables from
+the manifest.
+
+Then open **http://&lt;truenas-ip&gt;:8100**.
+
+The manifest publishes on host port **8100**. To move it, change only the
+left-hand number in `ports` (`"8100:8080"`) — the container always listens on
+8080 internally.
+
+### 4. First run
+
+The app starts with no data and will say so rather than showing empty tables.
+To get fixtures flowing:
+
+1. **Settings → Data sources** shows every provider and what it unlocks. Add at
+   least `FOOTBALL_DATA_ORG_KEY` (free and instant from
+   [football-data.org](https://www.football-data.org/client/register)) to the
+   app's environment variables and restart it. `THE_ODDS_API_KEY` is what the
+   bet builder needs for prices.
+2. **Settings → Ingestion jobs → Run "Refresh upcoming fixtures"**, then
+   "Refresh recent results". The scheduler then keeps them current on its own.
+3. **Set `BANKROLL`** when you want staking. The builder refuses to size a bet
+   without one, because every stake is expressed as a share of bankroll.
+4. Predictions need roughly 20 finished matches in a league before the model
+   will fit. Until then the fixture pages say so instead of guessing.
+
+### 5. Updating
+
+Pushes to `main` publish `:latest` and a `:sha-<commit>` tag; a version tag
+(`v0.2.0`) also publishes `:0.2.0` and `:0.2`.
+
+The manifest pins `:0.1.0` deliberately — a pinned tag means a redeploy gives
+you the same build rather than silently changing under you. To take a new
+version, **Apps → (app) → Edit**, change the image tag, and save.
+
+If you prefer automatic updates, change the tag to `:latest` and use the app's
+**Update** / pull action. Note that TrueNAS caches image layers, so pulling
+`:latest` may need an explicit pull to actually fetch the new digest.
+
+Database migrations run automatically on every start, so upgrading is just
+changing the tag — no manual migration step.
+
+### Behind a reverse proxy
+
+Set `ROOT_PATH` (e.g. `/gamestakes`) and forward the `Host` and `X-Forwarded-*`
+headers. If the app is reachable from outside your LAN, also set
+`AUTH_ENABLED=true` with an `AUTH_PASSWORD` and a `JWT_SECRET`
+(`openssl rand -hex 32`).
 
 ### Troubleshooting
 
 | Symptom | Cause and fix |
 |---|---|
-| Container restarts on start | Usually `PUID`/`PGID` not matching the dataset owner. The entrypoint logs a warning and continues if it cannot chown, then migrations fail with a clear permission error. |
-| UI loads but no fixtures | No provider keys yet. Settings → Data sources shows what each key unlocks; add one, then run the fixtures job. |
-| "No qualifying bets today" on every tier | Working as intended when nothing clears the edge thresholds. Each tier names the filter that emptied the pool. |
-| Odds stop updating | The Odds API free tier is 500 credits a month. Settings → Data sources shows remaining credits; the health check reports `degraded` below 50. |
-| Assets 404 behind a proxy | `ROOT_PATH` not set, or the proxy is stripping the subpath before forwarding. |
+| Container restarts in a loop | Almost always `PUID`/`PGID` not matching the dataset owner. Check the app logs: the entrypoint warns if it cannot chown, then migrations fail with a permission error naming the path. |
+| Deploy fails pulling the image | The tag does not exist. Check the [published versions](https://github.com/J1-HyPz/GameStakes/pkgs/container/gamestakes); the image itself is public and needs no login. |
+| Port already allocated | Something else holds 8100 on the host. Change the left-hand number in `ports`. |
+| UI loads but no fixtures | No provider keys yet, or no ingestion job has run. Settings → Data sources, then Ingestion jobs. |
+| Fixtures exist but no predictions | The league needs ~20 finished matches to fit the model. Run "Refresh recent results" to backfill history. |
+| "No qualifying bet" on every tier | Working as intended when nothing clears the thresholds. Each tier names the filter that emptied the pool — that is the honest answer, not a fault. |
+| Odds stop updating | The Odds API free tier is 500 credits a month. Settings → Data sources shows credits remaining; health reports `degraded` below 50. |
+| Assets 404 behind a proxy | `ROOT_PATH` unset, or the proxy strips the subpath before forwarding. |
 
 ## License
 
