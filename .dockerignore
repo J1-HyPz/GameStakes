@@ -1,0 +1,24 @@
+# Keep the build context clean: without this, the host's node_modules/.venv
+# overlay the image's fresh installs and the image silently depends on the
+# builder's machine.
+.git
+.github
+.venv
+**/node_modules
+frontend/dist
+frontend/coverage
+**/__pycache__
+**/*.pyc
+**/.mypy_cache
+**/.ruff_cache
+**/.pytest_cache
+backend/data
+backend/openapi.json
+data
+logs
+*.db
+*.db-journal
+.env
+.env.*
+!.env.example
+**/.DS_Store

@@ -1,0 +1,68 @@
+# Full stack: GameStakes + PostgreSQL 16 + Redis 7.
+# Run from the docker/ directory:  docker compose up -d
+# Requires Docker Compose v2.24+ (for the optional env_file).
+#
+# App settings (LOG_LEVEL, TIMEZONE, keys, ...) are read from a repo-root .env
+# via env_file below. Stack wiring set in `environment` (DATABASE_URL,
+# REDIS_URL, PORT) deliberately overrides .env.
+# POSTGRES_PASSWORD is compose *interpolation*: set it in your shell or in
+# docker/.env, and set it BEFORE the first `up` — the database volume captures
+# it at initialisation.
+services:
+  gamestakes:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: ghcr.io/j1-hypz/gamestakes:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://gamestakes:${POSTGRES_PASSWORD:-gamestakes}@db:5432/gamestakes
+      REDIS_URL: redis://redis:6379/0
+      # Pinned: the host side of the port mapping above is what you change.
+      PORT: "8080"
+    volumes:
+      - config:/config
+      - data:/data
+      - logs:/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gamestakes
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gamestakes}
+      POSTGRES_DB: gamestakes
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # -h forces TCP so the check cannot pass against the init-only
+      # unix-socket server postgres runs during first boot.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U gamestakes -d gamestakes"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  config:
+  data:
+  logs:
+  pgdata:

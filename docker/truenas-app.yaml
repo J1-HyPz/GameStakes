@@ -1,0 +1,20 @@
+# TrueNAS SCALE custom app manifest — completed in Phase 11.
+# This stub documents the intended shape; do not deploy it yet.
+#
+# Planned: single gamestakes container (slim/SQLite by default), host-path
+# volumes for /config and /data pointing at dedicated datasets, PUID/PGID
+# matching the dataset owner, web UI on port 8080.
+services:
+  gamestakes:
+    image: ghcr.io/j1-hypz/gamestakes:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:////data/gamestakes.db
+      PUID: "1000"
+      PGID: "1000"
+    volumes:
+      - /mnt/tank/apps/gamestakes/config:/config
+      - /mnt/tank/apps/gamestakes/data:/data
+      - /mnt/tank/apps/gamestakes/logs:/logs

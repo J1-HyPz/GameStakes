@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Node
+node_modules/
+frontend/dist/
+frontend/coverage/
+
+# Environment & secrets — never commit real keys
+.env
+.env.local
+.env.*.local
+
+# Runtime data
+data/
+logs/
+*.db
+*.db-journal
+
+# Generated artifacts kept out of git (regenerate via scripts)
+backend/openapi.json
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

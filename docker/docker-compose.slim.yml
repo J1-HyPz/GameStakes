@@ -1,0 +1,33 @@
+# Slim single-container mode: SQLite database, no Redis.
+# For low-resource hosts. Run from the docker/ directory:
+#   docker compose -f docker-compose.slim.yml up -d
+# Requires Docker Compose v2.24+ (for the optional env_file).
+#
+# App settings (LOG_LEVEL, TIMEZONE, keys, ...) are read from a repo-root .env
+# via env_file. The `environment` block pins stack wiring and overrides .env.
+services:
+  gamestakes:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: ghcr.io/j1-hypz/gamestakes:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:////data/gamestakes.db
+      REDIS_URL: ""
+      # Pinned: the host side of the port mapping above is what you change.
+      PORT: "8080"
+    volumes:
+      - config:/config
+      - data:/data
+      - logs:/logs
+
+volumes:
+  config:
+  data:
+  logs:
