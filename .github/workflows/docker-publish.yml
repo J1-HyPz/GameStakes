@@ -9,11 +9,21 @@ on:
     branches: [main]
     tags: ["v*"]
 
-env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/gamestakes
-
 jobs:
+  # GHCR rejects uppercase image names and this owner has them, so the name is
+  # lowercased once here rather than interpolated raw into each job.
+  name:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+    steps:
+      - id: image
+        run: echo "image=ghcr.io/${OWNER,,}/gamestakes" >> "$GITHUB_OUTPUT"
+        env:
+          OWNER: ${{ github.repository_owner }}
+
   build:
+    needs: name
     strategy:
       fail-fast: false
       matrix:
@@ -45,7 +55,7 @@ jobs:
           context: .
           file: docker/Dockerfile
           platforms: ${{ matrix.platform }}
-          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ needs.name.outputs.image }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.slug }}
           cache-to: type=gha,mode=max,scope=${{ matrix.slug }}
       - name: Export digest
@@ -61,7 +71,7 @@ jobs:
           retention-days: 1
 
   manifest:
-    needs: build
+    needs: [name, build]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -84,7 +94,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE }}
+          images: ${{ needs.name.outputs.image }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -95,6 +105,8 @@ jobs:
         run: |
           docker buildx imagetools create \
             $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.IMAGE }}@sha256:%s ' *)
+            $(printf '${{ needs.name.outputs.image }}@sha256:%s ' *)
       - name: Inspect published image
-        run: docker buildx imagetools inspect ${{ env.IMAGE }}:${{ steps.meta.outputs.version }}
+        run: |
+          docker buildx imagetools inspect \
+            ${{ needs.name.outputs.image }}:${{ steps.meta.outputs.version }}

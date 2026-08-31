@@ -36,6 +36,11 @@ AUTO_ACCEPT_SCORE = 92.0
 AMBIGUITY_MARGIN = 5.0
 # Below this, a candidate is not even worth listing for the human.
 CANDIDATE_FLOOR = 60.0
+# Below this, a candidate is listed for context but is not real confusion risk:
+# "Newcastle United" and "Manchester United" share a word and score ~65, which
+# must not block creating a club we genuinely have not seen. Only candidates at
+# or above this count as ambiguous.
+AMBIGUITY_FLOOR = 85.0
 MAX_CANDIDATES = 5
 
 # Noise tokens stripped during normalisation. Deliberately conservative:
@@ -87,6 +92,10 @@ class Resolution:
     queue_item_id: int | None = None
     source: AliasSource | None = None
     score: float | None = None
+    # How many existing entities looked plausible. Zero means nothing in the
+    # database resembles this name — the caller may safely create a new entity,
+    # since there is nothing it could be confused with.
+    candidate_count: int = 0
 
     @property
     def resolved(self) -> bool:
@@ -159,7 +168,9 @@ class EntityResolver:
                 candidates=[],
                 context={"reason": "name has no Latin characters to match on"},
             )
-            return Resolution(None, queued=True, queue_item_id=item.id)
+            # Non-Latin names carry no matchable signal, so treat them as
+            # ambiguous rather than new — a human must decide.
+            return Resolution(None, queued=True, queue_item_id=item.id, candidate_count=1)
 
         # 2. Known alias name for this provider.
         alias = await self._alias_by_name(entity_type, provider, sport_id, normalized)
@@ -235,7 +246,16 @@ class EntityResolver:
                         for name, score, eid in matches
                     ],
                 )
-                return Resolution(None, queued=True, queue_item_id=item.id)
+                # Only genuinely close names count as ambiguity; the rest are
+                # listed on the queue item purely as context for the reviewer.
+                plausible = [m for m in matches if m[1] >= AMBIGUITY_FLOOR]
+                return Resolution(
+                    None,
+                    queued=True,
+                    queue_item_id=item.id,
+                    candidate_count=len(plausible),
+                    score=matches[0][1],
+                )
 
         # Ambiguous exact duplicates, or nothing remotely close: human decides.
         item = await self._enqueue(
@@ -249,7 +269,7 @@ class EntityResolver:
                 {"entity_id": eid, "name": canonical[eid], "score": 100.0} for eid in exact_ids
             ],
         )
-        return Resolution(None, queued=True, queue_item_id=item.id)
+        return Resolution(None, queued=True, queue_item_id=item.id, candidate_count=len(exact_ids))
 
     async def resolve_manually(self, queue_item_id: int, entity_id: int) -> ResolutionQueueItem:
         """Apply a human decision from the admin screen: create a MANUAL alias

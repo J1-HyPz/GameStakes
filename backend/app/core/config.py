@@ -39,9 +39,29 @@ class Settings(BaseSettings):
     # Directory holding the built SPA. Autodetected when unset (container
     # default /app/static, then ../frontend/dist for local dev).
     static_dir: Path | None = None
+    # Writable volume for simulation draws and model artifacts.
+    data_dir: Path = Path("./data")
+
+    # Bankroll and staking. Bankroll is required before the builder will
+    # recommend a stake — every number is expressed relative to it.
+    bankroll: float = 0.0
+    kelly_multiplier: float = 0.25
+    daily_exposure_cap: float = 0.05  # share of bankroll
+    weekly_exposure_cap: float = 0.15
+    odds_format: str = "decimal"
 
     timezone: str = "Europe/London"
     currency: str = "GBP"
+
+    # Ingestion cadence. Deliberately frugal: provider free tiers are small,
+    # and The Odds API bills credits per market per region.
+    scheduler_enabled: bool = True
+    fixtures_refresh_hours: int = 6
+    results_refresh_hours: int = 3
+    # Odds cost credits per pull, so this is the stingiest schedule that still
+    # gives a usable price history for closing line value.
+    odds_refresh_hours: int = 8
+    predictions_refresh_hours: int = 12
 
     # Provider keys (used from Phase 3). Empty string means "not configured".
     api_sports_key: str = ""

@@ -22,6 +22,8 @@ os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TMP_DIR}/test.db"
 os.environ["DATABASE_POOL"] = "null"
 os.environ["REDIS_URL"] = ""
 os.environ["ENVIRONMENT"] = "test"
+# Tests drive ingestion explicitly; no background jobs.
+os.environ["SCHEDULER_ENABLED"] = "false"
 
 
 @pytest.fixture(scope="session", autouse=True)

@@ -28,6 +28,7 @@ class ProviderStatus(BaseModel):
     name: str
     status: Literal["up", "down", "disabled", "degraded"]
     detail: str | None = None
+    quota_remaining: int | None = None
 
 
 class HealthResponse(BaseModel):
@@ -66,10 +67,14 @@ async def _check_redis() -> ComponentStatus:
 
 
 @router.get("/health")
-async def health() -> HealthResponse:
+async def health(check_providers: bool = False) -> HealthResponse:
+    """Container HEALTHCHECK hits this on a timer, so upstream APIs are only
+    contacted when `check_providers` is set — otherwise providers are reported
+    from configuration alone."""
     settings = get_settings()
     database = await _check_database()
     redis_status = await _check_redis()
+    providers = await _probe_providers() if check_providers else _describe_providers_offline()
 
     degraded = database.status == "down" or redis_status.status == "down"
     return HealthResponse(
@@ -78,5 +83,32 @@ async def health() -> HealthResponse:
         version=__version__,
         database=database,
         redis=redis_status,
-        providers=[],  # populated in Phase 3 when provider adapters exist
+        providers=providers,
     )
+
+
+def _describe_providers_offline() -> list[ProviderStatus]:
+    from app.providers.registry import describe_providers, get_registry
+
+    return [
+        ProviderStatus(
+            name=p["name"],
+            status="up" if p["configured"] else "disabled",
+            detail=None if p["configured"] else "no API key configured",
+        )
+        for p in describe_providers(get_registry())
+    ]
+
+
+async def _probe_providers() -> list[ProviderStatus]:
+    from app.providers.registry import get_registry
+
+    return [
+        ProviderStatus(
+            name=h.name,
+            status=h.state.value,
+            detail=h.detail,
+            quota_remaining=h.quota_remaining,
+        )
+        for h in await get_registry().health()
+    ]

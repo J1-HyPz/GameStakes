@@ -60,7 +60,8 @@ describe('Dashboard', () => {
     expect(await screen.findByText('Database')).toBeInTheDocument()
     expect(screen.getByText('up')).toBeInTheDocument()
     expect(screen.getByText('disabled')).toBeInTheDocument()
-    expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/health')
+    const requested = vi.mocked(fetch).mock.calls.map((call) => call[0])
+    expect(requested).toContain('/api/health')
   })
 
   it('renders sport coverage from /api/sports', async () => {

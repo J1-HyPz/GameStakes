@@ -13,7 +13,34 @@ def test_health_reports_ok_with_sqlite_and_no_redis(client: TestClient) -> None:
     assert body["app"] == "GameStakes"
     assert body["database"]["status"] == "up"
     assert body["redis"]["status"] == "disabled"
-    assert body["providers"] == []
+
+    # Providers are listed from configuration; with no keys set, the keyed ones
+    # report "disabled" rather than being hidden.
+    providers = {p["name"]: p for p in body["providers"]}
+    assert providers, "the UI needs to see which sources exist"
+    assert providers["the-odds-api"]["status"] == "disabled"
+    assert providers["espn"]["status"] == "up"  # needs no key
+
+
+def test_health_does_not_call_providers_by_default(client: TestClient) -> None:
+    """The container HEALTHCHECK hits this on a timer — it must not spend
+    provider quota or block on a slow upstream."""
+    import app.providers.registry as registry_module
+
+    original = registry_module.ProviderRegistry.health
+    called = False
+
+    async def spy(self):  # type: ignore[no-untyped-def]
+        nonlocal called
+        called = True
+        return await original(self)
+
+    registry_module.ProviderRegistry.health = spy  # type: ignore[method-assign]
+    try:
+        assert client.get("/api/health").status_code == 200
+        assert not called
+    finally:
+        registry_module.ProviderRegistry.health = original  # type: ignore[method-assign]
 
 
 def test_request_id_header_is_set(client: TestClient) -> None:

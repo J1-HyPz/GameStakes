@@ -6,6 +6,8 @@ static files — one port, one URL, no separate frontend container.
 
 import time
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -62,12 +64,27 @@ def create_app() -> FastAPI:
     configure_logging(settings.log_level, settings.environment)
     log = get_logger(__name__)
 
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        from app.ingest.scheduler import shutdown_scheduler, start_scheduler
+        from app.providers.cache import reset_cache
+        from app.providers.registry import reset_registry
+
+        start_scheduler()
+        try:
+            yield
+        finally:
+            shutdown_scheduler()
+            await reset_registry()
+            await reset_cache()
+
     app = FastAPI(
         title=settings.app_name,
         version=__version__,
         root_path=settings.root_path,
         docs_url="/api/docs",
         openapi_url="/api/openapi.json",
+        lifespan=lifespan,
     )
 
     @app.middleware("http")

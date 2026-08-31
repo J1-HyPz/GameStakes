@@ -13,11 +13,11 @@ recommendations; and tracks every prediction against real outcomes.
 > bet. Models can be wrong; losing runs are expected even with a real edge.
 > Nothing in this tool is financial advice.
 
-**Status: Phase 2 (data model).** The stack runs and the full schema is in
-place — 25 tables covering fixtures, odds time-series, simulations, bets and
-settlement, with 35 leagues across 5 sports seeded from YAML. Data providers,
-models and the bet builder land in later phases. See
-[Build phases](#build-phases).
+**Status: Phases 1-8 complete.** The full chain works end to end: providers
+ingest fixtures, results and odds; the football model fits and simulates; the
+bet builder prices correlated parlays and sizes stakes; and the tracker grades
+outcomes and reports calibration. Remaining sports, backtesting and final
+polish are the last phases. See [Build phases](#build-phases).
 
 ### Data model notes
 
@@ -36,6 +36,39 @@ models and the bet builder land in later phases. See
 - **Leagues are configuration.** Add one to
   [`leagues.yaml`](backend/app/ingest/seeds/leagues.yaml) — no code change.
   Seeding is idempotent; removed leagues deactivate rather than delete.
+
+### How the predictions work
+
+- **Every prediction is a distribution.** A fixture is simulated 20,000 times
+  (configurable to 100,000) and markets are derived from the draws, so the UI
+  shows intervals rather than a single number.
+- **Parlays are priced from the joint distribution.** Legs in the same game
+  correlate: if a team wins big, the over and its striker scoring both become
+  likelier. The builder counts the iterations where *every* leg wins, and shows
+  the naive independent figure beside it so the difference is visible.
+- **De-vigging uses the power method**, not proportional normalisation, which
+  overstates longshots and invents edges that are not there.
+- **Fractional Kelly, capped.** Quarter Kelly by default, hard-capped per tier
+  and by daily/weekly exposure limits the builder will not exceed.
+- **A tier with nothing qualifying returns nothing** and says which filter
+  emptied the pool. Filling the slot with a marginal bet is how a tool teaches
+  its user to lose money.
+- **Sample size is impossible to ignore.** Every rate ships with a bootstrap
+  confidence interval and its n; the calibration chart shows whether stated
+  probabilities can be trusted at all.
+
+### Known data limits
+
+These are constraints of the free tiers, stated plainly rather than papered
+over:
+
+- **The Odds API free tier is 500 credits a month**, billed per market per
+  region. Snapshots are therefore sparse, and "closing line" means the last
+  price captured before kickoff, not a true close.
+- **Boxing coverage is thin.** No free structured API exists and BoxRec
+  prohibits scraping, so coverage is event listings and metadata only.
+- **Injury data is manual.** No reliable free feed exists, so key-player
+  availability is an explicit model input rather than something inferred.
 
 ## Quick start
 
@@ -128,12 +161,12 @@ CI fails if `frontend/src/types/api.ts` is stale.
 |---|---|---|
 | 1 | Skeleton: Docker, CI, health endpoint, SPA serving, migrations | ✅ |
 | 2 | Full data model + entity resolution | ✅ |
-| 3 | Provider adapters, rate limiting, failover, settings page | — |
-| 4 | Schedule UI with live scores | — |
-| 5 | Football model (Dixon-Coles + Elo) and simulation engine | — |
-| 6 | Odds ingestion, de-vigging, edge calculation | — |
-| 7 | Bet builder with correlated parlay pricing | — |
-| 8 | Settlement, tracker, calibration | — |
+| 3 | Provider adapters, rate limiting, failover, settings page | ✅ |
+| 4 | Schedule UI with live scores | ✅ |
+| 5 | Football model (Dixon-Coles + Elo) and simulation engine | ✅ |
+| 6 | Odds ingestion, de-vigging, edge calculation | ✅ |
+| 7 | Bet builder with correlated parlay pricing | ✅ |
+| 8 | Settlement, tracker, calibration | ✅ |
 | 9 | Basketball, American football, MMA, boxing | — |
 | 10 | Backtesting harness | — |
 | 11 | Polish, TrueNAS manifest, tagged release | — |

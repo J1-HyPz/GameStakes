@@ -6,7 +6,12 @@
 
 export interface paths {
   "/api/health": {
-    /** Health */
+    /**
+     * Health
+     * @description Container HEALTHCHECK hits this on a timer, so upstream APIs are only
+     * contacted when `check_providers` is set — otherwise providers are reported
+     * from configuration alone.
+     */
     get: operations["health_api_health_get"];
   };
   "/api/sports": {
@@ -20,6 +25,86 @@ export interface paths {
   "/api/leagues/{slug}": {
     /** Get League */
     get: operations["get_league_api_leagues__slug__get"];
+  };
+  "/api/fixtures": {
+    /**
+     * List Fixtures
+     * @description Fixtures in a date range. Defaults to today through the next week.
+     */
+    get: operations["list_fixtures_api_fixtures_get"];
+  };
+  "/api/fixtures/{fixture_id}": {
+    /** Get Fixture */
+    get: operations["get_fixture_api_fixtures__fixture_id__get"];
+  };
+  "/api/fixtures/{fixture_id}/prediction": {
+    /** Fixture Prediction */
+    get: operations["fixture_prediction_api_fixtures__fixture_id__prediction_get"];
+  };
+  "/api/bets/builder": {
+    /**
+     * Builder
+     * @description Generate one bet per risk tier for the slate.
+     *
+     * A tier with nothing qualifying returns no bet and says why. That is the
+     * correct output, not a failure — filling the slot with a marginal bet is how
+     * a tool teaches its user to lose money.
+     */
+    get: operations["builder_api_bets_builder_get"];
+  };
+  "/api/bets": {
+    /** List Bets */
+    get: operations["list_bets_api_bets_get"];
+    /**
+     * Track Bet
+     * @description Log a bet as placed, so the tracker can grade it against real outcomes.
+     */
+    post: operations["track_bet_api_bets_post"];
+  };
+  "/api/tracker/metrics": {
+    /** Metrics */
+    get: operations["metrics_api_tracker_metrics_get"];
+  };
+  "/api/tracker/settle": {
+    /**
+     * Run Settlement
+     * @description Grade everything whose fixture has finished.
+     */
+    post: operations["run_settlement_api_tracker_settle_post"];
+  };
+  "/api/jobs/schedule": {
+    /** Scheduled Jobs */
+    get: operations["scheduled_jobs_api_jobs_schedule_get"];
+  };
+  "/api/jobs/runs": {
+    /**
+     * Job Runs
+     * @description Recent runs, newest first — the 'no silent failures' view.
+     */
+    get: operations["job_runs_api_jobs_runs_get"];
+  };
+  "/api/jobs/{job_id}/run": {
+    /** Trigger Job */
+    post: operations["trigger_job_api_jobs__job_id__run_post"];
+  };
+  "/api/providers": {
+    /**
+     * List Providers
+     * @description Static description — no upstream calls, so this is always fast.
+     */
+    get: operations["list_providers_api_providers_get"];
+  };
+  "/api/providers/{name}/test": {
+    /**
+     * Test Provider
+     * @description Live connection test. Health checks avoid metered endpoints, so this is
+     * safe to press repeatedly.
+     */
+    post: operations["test_provider_api_providers__name__test_post"];
+  };
+  "/api/providers/health": {
+    /** Providers Health */
+    get: operations["providers_health_api_providers_health_get"];
   };
   "/api/resolution/queue": {
     /** List Queue */
@@ -40,6 +125,53 @@ export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
     /**
+     * BetStatus
+     * @enum {string}
+     */
+    BetStatus: "pending" | "placed" | "settled" | "void";
+    /**
+     * BetTier
+     * @enum {string}
+     */
+    BetTier: "low" | "medium" | "high" | "manual";
+    /** BuilderResponse */
+    BuilderResponse: {
+      /** Tiers */
+      tiers: components["schemas"]["TierOut"][];
+      /** Bankroll */
+      bankroll: number;
+      /** Currency */
+      currency: string;
+      /** Staking Note */
+      staking_note: string;
+      /**
+       * Slate Start
+       * Format: date-time
+       */
+      slate_start: string;
+      /**
+       * Slate End
+       * Format: date-time
+       */
+      slate_end: string;
+      /**
+       * Disclaimer
+       * @default Model probabilities are estimates, not certainties. Negative runs are expected even with a genuine edge.
+       */
+      disclaimer?: string;
+    };
+    /** CalibrationOut */
+    CalibrationOut: {
+      /** Label */
+      label: string;
+      /** Predicted */
+      predicted: number;
+      /** Actual */
+      actual: number;
+      /** Count */
+      count: number;
+    };
+    /**
      * CompetitionType
      * @enum {string}
      */
@@ -55,10 +187,76 @@ export interface components {
       detail?: string | null;
     };
     /**
+     * Confidence
+     * @enum {string}
+     */
+    Confidence: "low" | "medium" | "high";
+    /**
      * EntityType
      * @enum {string}
      */
     EntityType: "team" | "player" | "league" | "fixture";
+    /** EquityPointOut */
+    EquityPointOut: {
+      /** Index */
+      index: number;
+      /** Bankroll */
+      bankroll: number;
+      /** Change */
+      change: number;
+    };
+    /** FixtureOut */
+    FixtureOut: {
+      /** Id */
+      id: number;
+      /** Sport Slug */
+      sport_slug: string;
+      /** League Slug */
+      league_slug: string;
+      /** League Name */
+      league_name: string;
+      /**
+       * Start Time
+       * Format: date-time
+       */
+      start_time: string;
+      status: components["schemas"]["FixtureStatus"];
+      /** Round */
+      round: string | null;
+      /** Event Name */
+      event_name: string | null;
+      /** Venue */
+      venue: string | null;
+      home: components["schemas"]["ParticipantOut"];
+      away: components["schemas"]["ParticipantOut"];
+      /**
+       * Has Prediction
+       * @default false
+       */
+      has_prediction?: boolean;
+    };
+    /** FixturePage */
+    FixturePage: {
+      /** Fixtures */
+      fixtures: components["schemas"]["FixtureOut"][];
+      /** Total */
+      total: number;
+      /**
+       * Start
+       * Format: date
+       */
+      start: string;
+      /**
+       * End
+       * Format: date
+       */
+      end: string;
+    };
+    /**
+     * FixtureStatus
+     * @enum {string}
+     */
+    FixtureStatus: "scheduled" | "in_play" | "finished" | "postponed" | "cancelled" | "unknown";
     /** HTTPValidationError */
     HTTPValidationError: {
       /** Detail */
@@ -80,6 +278,53 @@ export interface components {
       /** Providers */
       providers: components["schemas"]["ProviderStatus"][];
     };
+    /** IntervalOut */
+    IntervalOut: {
+      /** Point */
+      point: number;
+      /** Low */
+      low: number;
+      /** High */
+      high: number;
+      /** N */
+      n: number;
+      /** Is Meaningful */
+      is_meaningful: boolean;
+      /** Description */
+      description: string;
+    };
+    /** JobRun */
+    JobRun: {
+      /** Id */
+      id: number;
+      /** Job Name */
+      job_name: string;
+      /** Provider */
+      provider: string | null;
+      status: components["schemas"]["JobStatus"];
+      /**
+       * Started At
+       * Format: date-time
+       */
+      started_at: string;
+      /** Finished At */
+      finished_at: string | null;
+      /** Rows Fetched */
+      rows_fetched: number;
+      /** Rows Upserted */
+      rows_upserted: number;
+      /** Error */
+      error: string | null;
+      /** Detail */
+      detail: {
+        [key: string]: unknown;
+      };
+    };
+    /**
+     * JobStatus
+     * @enum {string}
+     */
+    JobStatus: "running" | "success" | "failure";
     /** LeagueOut */
     LeagueOut: {
       /** Id */
@@ -100,6 +345,174 @@ export interface components {
       /** Sport Slug */
       sport_slug: string;
     };
+    /** LegOut */
+    LegOut: {
+      /** Fixture Id */
+      fixture_id: number;
+      /** Fixture */
+      fixture: string;
+      /** League */
+      league: string;
+      /**
+       * Kick Off
+       * Format: date-time
+       */
+      kick_off: string;
+      /** Market */
+      market: string;
+      /** Selection */
+      selection: string;
+      /** Line */
+      line: number | null;
+      /** Price Decimal */
+      price_decimal: number;
+      /** Bookmaker */
+      bookmaker: string | null;
+      /** Model Probability */
+      model_probability: number;
+      /** Implied Probability */
+      implied_probability: number | null;
+      /** Edge */
+      edge: number | null;
+      /** Confidence */
+      confidence: string;
+      /** Reasoning */
+      reasoning: string;
+    };
+    /**
+     * MarketRow
+     * @description One selection: what the model thinks, what the market charges.
+     */
+    MarketRow: {
+      /** Market */
+      market: string;
+      /** Selection */
+      selection: string;
+      /** Line */
+      line: number | null;
+      /** Model Probability */
+      model_probability: number;
+      /** Fair Price */
+      fair_price: number | null;
+      /** Best Price */
+      best_price: number | null;
+      /** Bookmaker */
+      bookmaker: string | null;
+      /** Implied Probability */
+      implied_probability: number | null;
+      /** Edge */
+      edge: number | null;
+    };
+    /** MetricsResponse */
+    MetricsResponse: {
+      hit_rate: components["schemas"]["IntervalOut"];
+      roi: components["schemas"]["IntervalOut"];
+      /** Brier Score */
+      brier_score: number | null;
+      /** Log Loss */
+      log_loss: number | null;
+      /** Calibration */
+      calibration: components["schemas"]["CalibrationOut"][];
+      /** Equity */
+      equity: components["schemas"]["EquityPointOut"][];
+      /** Max Drawdown */
+      max_drawdown: number;
+      /** Longest Losing Streak */
+      longest_losing_streak: number;
+      /** Sharpe */
+      sharpe: number | null;
+      /** Average Clv */
+      average_clv: number | null;
+      /** Settled Bets */
+      settled_bets: number;
+      /** Open Bets */
+      open_bets: number;
+      /** Graded Predictions */
+      graded_predictions: number;
+      /** Exposure */
+      exposure: string;
+      /** Sample Warning */
+      sample_warning: string | null;
+    };
+    /** ParticipantOut */
+    ParticipantOut: {
+      side: components["schemas"]["Side"];
+      /** Name */
+      name: string;
+      /** Team Id */
+      team_id?: number | null;
+      /** Player Id */
+      player_id?: number | null;
+      /** Logo Url */
+      logo_url?: string | null;
+      /** Score */
+      score?: number | null;
+    };
+    /** PredictionOut */
+    PredictionOut: {
+      /** Fixture Id */
+      fixture_id: number;
+      /**
+       * Generated At
+       * Format: date-time
+       */
+      generated_at: string;
+      /** Model Version Id */
+      model_version_id: number;
+      confidence: components["schemas"]["Confidence"];
+      /** Confidence Score */
+      confidence_score: number | null;
+      /** N Iterations */
+      n_iterations: number | null;
+      /** Seed */
+      seed: number | null;
+      /** Summary */
+      summary: {
+        [key: string]: unknown;
+      };
+      /** Heatmap */
+      heatmap: number[][];
+      /** Markets */
+      markets: components["schemas"]["MarketRow"][];
+      /** Reasoning */
+      reasoning: {
+        [key: string]: unknown;
+      };
+    };
+    /** ProviderHealth */
+    ProviderHealth: {
+      /** Name */
+      name: string;
+      state: components["schemas"]["ProviderState"];
+      /** Detail */
+      detail?: string | null;
+      /** Quota Remaining */
+      quota_remaining?: number | null;
+      /** Checked At */
+      checked_at?: string | null;
+    };
+    /** ProviderInfo */
+    ProviderInfo: {
+      /** Name */
+      name: string;
+      /** Configured */
+      configured: boolean;
+      /** Best Effort */
+      best_effort: boolean;
+      /** Sports */
+      sports: string[];
+      /** Leagues */
+      leagues: string[];
+      /** Capabilities */
+      capabilities: string[];
+      /** Priority */
+      priority: number;
+    };
+    /**
+     * ProviderState
+     * @enum {string}
+     */
+    ProviderState: "up" | "degraded" | "down" | "disabled";
     /** ProviderStatus */
     ProviderStatus: {
       /** Name */
@@ -111,6 +524,8 @@ export interface components {
       status: "up" | "down" | "disabled" | "degraded";
       /** Detail */
       detail?: string | null;
+      /** Quota Remaining */
+      quota_remaining?: number | null;
     };
     /** QueueItemOut */
     QueueItemOut: {
@@ -143,6 +558,31 @@ export interface components {
       /** Entity Id */
       entity_id: number;
     };
+    /** ScheduledJob */
+    ScheduledJob: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Next Run */
+      next_run: string | null;
+      /** Trigger */
+      trigger: string;
+    };
+    /** SettlementRunOut */
+    SettlementRunOut: {
+      /** Predictions */
+      predictions: number;
+      /** Bets */
+      bets: number;
+    };
+    /**
+     * Side
+     * @description Fixture participant side. For combat sports HOME is the first-listed
+     * fighter (red corner / champion side), AWAY the second.
+     * @enum {string}
+     */
+    Side: "home" | "away";
     /**
      * SportKind
      * @enum {string}
@@ -159,6 +599,101 @@ export interface components {
       kind: components["schemas"]["SportKind"];
       /** League Count */
       league_count: number;
+    };
+    /**
+     * TierOut
+     * @description A tier's bet, or an explanation of why there isn't one.
+     */
+    TierOut: {
+      tier: components["schemas"]["BetTier"];
+      /** Has Bet */
+      has_bet: boolean;
+      /**
+       * Legs
+       * @default []
+       */
+      legs?: components["schemas"]["LegOut"][];
+      /** Combined Odds */
+      combined_odds?: number | null;
+      /** Combined Probability */
+      combined_probability?: number | null;
+      /** Naive Probability */
+      naive_probability?: number | null;
+      /** Correlation Effect */
+      correlation_effect?: number | null;
+      /** Expected Value */
+      expected_value?: number | null;
+      /** Edge */
+      edge?: number | null;
+      /** Stake */
+      stake?: number | null;
+      /** Stake Fraction */
+      stake_fraction?: number | null;
+      /** Kelly Fraction */
+      kelly_fraction?: number | null;
+      /** Capped By */
+      capped_by?: string | null;
+      /** Projected Return */
+      projected_return?: number | null;
+      /** Loss Frequency */
+      loss_frequency?: string | null;
+      /**
+       * Candidates Considered
+       * @default 0
+       */
+      candidates_considered?: number;
+      /**
+       * Candidates Qualifying
+       * @default 0
+       */
+      candidates_qualifying?: number;
+      /** Reason */
+      reason?: string | null;
+      /** Copy Text */
+      copy_text?: string | null;
+    };
+    /** TrackBetIn */
+    TrackBetIn: {
+      tier: components["schemas"]["BetTier"];
+      /** Stake */
+      stake: number;
+      /** Combined Price Decimal */
+      combined_price_decimal: number;
+      /** Combined Probability */
+      combined_probability: number;
+      /** Naive Probability */
+      naive_probability?: number | null;
+      /** Expected Value */
+      expected_value?: number | null;
+      /** Kelly Fraction */
+      kelly_fraction?: number | null;
+      /** Legs */
+      legs: {
+          [key: string]: unknown;
+        }[];
+    };
+    /** TrackedBetOut */
+    TrackedBetOut: {
+      /** Id */
+      id: number;
+      tier: components["schemas"]["BetTier"];
+      status: components["schemas"]["BetStatus"];
+      /** Stake */
+      stake: string;
+      /** Currency */
+      currency: string;
+      /** Combined Price Decimal */
+      combined_price_decimal: string;
+      /** Combined Probability */
+      combined_probability: number;
+      /** Expected Value */
+      expected_value: number | null;
+      /** Placed At */
+      placed_at: string | null;
+      /** Settled At */
+      settled_at: string | null;
+      /** Payout */
+      payout: string | null;
     };
     /** ValidationError */
     ValidationError: {
@@ -187,13 +722,29 @@ export type external = Record<string, never>;
 
 export interface operations {
 
-  /** Health */
+  /**
+   * Health
+   * @description Container HEALTHCHECK hits this on a timer, so upstream APIs are only
+   * contacted when `check_providers` is set — otherwise providers are reported
+   * from configuration alone.
+   */
   health_api_health_get: {
+    parameters: {
+      query?: {
+        check_providers?: boolean;
+      };
+    };
     responses: {
       /** @description Successful Response */
       200: {
         content: {
           "application/json": components["schemas"]["HealthResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };
@@ -250,6 +801,311 @@ export interface operations {
       422: {
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * List Fixtures
+   * @description Fixtures in a date range. Defaults to today through the next week.
+   */
+  list_fixtures_api_fixtures_get: {
+    parameters: {
+      query?: {
+        start?: string | null;
+        end?: string | null;
+        sport?: string | null;
+        league?: string | null;
+        team_id?: number | null;
+        status?: components["schemas"]["FixtureStatus"] | null;
+        limit?: number;
+        offset?: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["FixturePage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Get Fixture */
+  get_fixture_api_fixtures__fixture_id__get: {
+    parameters: {
+      path: {
+        fixture_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["FixtureOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Fixture Prediction */
+  fixture_prediction_api_fixtures__fixture_id__prediction_get: {
+    parameters: {
+      path: {
+        fixture_id: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["PredictionOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Builder
+   * @description Generate one bet per risk tier for the slate.
+   *
+   * A tier with nothing qualifying returns no bet and says why. That is the
+   * correct output, not a failure — filling the slot with a marginal bet is how
+   * a tool teaches its user to lose money.
+   */
+  builder_api_bets_builder_get: {
+    parameters: {
+      query?: {
+        hours_ahead?: number;
+        sport?: string | null;
+        league?: string | null;
+        min_confidence?: components["schemas"]["Confidence"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["BuilderResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** List Bets */
+  list_bets_api_bets_get: {
+    parameters: {
+      query?: {
+        status?: components["schemas"]["BetStatus"] | null;
+        limit?: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["TrackedBetOut"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Track Bet
+   * @description Log a bet as placed, so the tracker can grade it against real outcomes.
+   */
+  track_bet_api_bets_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TrackBetIn"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["TrackedBetOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Metrics */
+  metrics_api_tracker_metrics_get: {
+    parameters: {
+      query?: {
+        tier?: components["schemas"]["BetTier"] | null;
+        sport?: string | null;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MetricsResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * Run Settlement
+   * @description Grade everything whose fixture has finished.
+   */
+  run_settlement_api_tracker_settle_post: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["SettlementRunOut"];
+        };
+      };
+    };
+  };
+  /** Scheduled Jobs */
+  scheduled_jobs_api_jobs_schedule_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ScheduledJob"][];
+        };
+      };
+    };
+  };
+  /**
+   * Job Runs
+   * @description Recent runs, newest first — the 'no silent failures' view.
+   */
+  job_runs_api_jobs_runs_get: {
+    parameters: {
+      query?: {
+        status?: components["schemas"]["JobStatus"] | null;
+        limit?: number;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["JobRun"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Trigger Job */
+  trigger_job_api_jobs__job_id__run_post: {
+    parameters: {
+      path: {
+        job_id: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": {
+            [key: string]: string;
+          };
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /**
+   * List Providers
+   * @description Static description — no upstream calls, so this is always fast.
+   */
+  list_providers_api_providers_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ProviderInfo"][];
+        };
+      };
+    };
+  };
+  /**
+   * Test Provider
+   * @description Live connection test. Health checks avoid metered endpoints, so this is
+   * safe to press repeatedly.
+   */
+  test_provider_api_providers__name__test_post: {
+    parameters: {
+      path: {
+        name: string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ProviderHealth"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  /** Providers Health */
+  providers_health_api_providers_health_get: {
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ProviderHealth"][];
         };
       };
     };
