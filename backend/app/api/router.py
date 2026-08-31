@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from app.api import (
+    backtest,
     bets,
     catalog,
     fixtures,
@@ -21,6 +22,7 @@ api_router.include_router(fixtures.router)
 api_router.include_router(predictions.router)
 api_router.include_router(bets.router)
 api_router.include_router(tracker.router)
+api_router.include_router(backtest.router)
 api_router.include_router(jobs.router)
 api_router.include_router(providers.router)
 api_router.include_router(resolution.router)

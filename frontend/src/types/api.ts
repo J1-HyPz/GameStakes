@@ -72,6 +72,17 @@ export interface paths {
      */
     post: operations["run_settlement_api_tracker_settle_post"];
   };
+  "/api/backtest/run": {
+    /**
+     * Run
+     * @description Replay a period with walk-forward refitting.
+     *
+     * Training data is restricted to fixtures that kicked off before each cutoff
+     * and odds to snapshots captured before kickoff. If anything violates that,
+     * the run fails rather than reporting a fictional edge.
+     */
+    post: operations["run_api_backtest_run_post"];
+  };
   "/api/jobs/schedule": {
     /** Scheduled Jobs */
     get: operations["scheduled_jobs_api_jobs_schedule_get"];
@@ -124,6 +135,82 @@ export type webhooks = Record<string, never>;
 
 export interface components {
   schemas: {
+    /** BacktestOut */
+    BacktestOut: {
+      /** League */
+      league: string;
+      /** Model Version */
+      model_version: string;
+      /**
+       * Start
+       * Format: date
+       */
+      start: string;
+      /**
+       * End
+       * Format: date
+       */
+      end: string;
+      /** Windows */
+      windows: number;
+      /** Fixtures Predicted */
+      fixtures_predicted: number;
+      /** Bets Placed */
+      bets_placed: number;
+      hit_rate: components["schemas"]["app__api__backtest__IntervalOut"];
+      roi: components["schemas"]["app__api__backtest__IntervalOut"];
+      /** Brier Score */
+      brier_score: number | null;
+      /** Log Loss */
+      log_loss: number | null;
+      /** Calibration */
+      calibration: {
+          [key: string]: number;
+        }[];
+      /** Final Bankroll */
+      final_bankroll: number;
+      /** Max Drawdown */
+      max_drawdown: number;
+      /** Longest Losing Streak */
+      longest_losing_streak: number;
+      /** Notes */
+      notes: string[];
+    };
+    /** BacktestRequest */
+    BacktestRequest: {
+      /** League */
+      league: string;
+      /**
+       * Start
+       * Format: date
+       */
+      start: string;
+      /**
+       * End
+       * Format: date
+       */
+      end: string;
+      /**
+       * Starting Bankroll
+       * @default 1000
+       */
+      starting_bankroll?: number;
+      /**
+       * Window Days
+       * @default 7
+       */
+      window_days?: number;
+      /**
+       * Min Edge
+       * @default 0.03
+       */
+      min_edge?: number;
+      /**
+       * Kelly Multiplier
+       * @default 0.25
+       */
+      kelly_multiplier?: number;
+    };
     /**
      * BetStatus
      * @enum {string}
@@ -278,21 +365,6 @@ export interface components {
       /** Providers */
       providers: components["schemas"]["ProviderStatus"][];
     };
-    /** IntervalOut */
-    IntervalOut: {
-      /** Point */
-      point: number;
-      /** Low */
-      low: number;
-      /** High */
-      high: number;
-      /** N */
-      n: number;
-      /** Is Meaningful */
-      is_meaningful: boolean;
-      /** Description */
-      description: string;
-    };
     /** JobRun */
     JobRun: {
       /** Id */
@@ -405,8 +477,8 @@ export interface components {
     };
     /** MetricsResponse */
     MetricsResponse: {
-      hit_rate: components["schemas"]["IntervalOut"];
-      roi: components["schemas"]["IntervalOut"];
+      hit_rate: components["schemas"]["app__api__tracker__IntervalOut"];
+      roi: components["schemas"]["app__api__tracker__IntervalOut"];
       /** Brier Score */
       brier_score: number | null;
       /** Log Loss */
@@ -708,6 +780,34 @@ export interface components {
       /** Context */
       ctx?: Record<string, never>;
     };
+    /** IntervalOut */
+    app__api__backtest__IntervalOut: {
+      /** Point */
+      point: number;
+      /** Low */
+      low: number;
+      /** High */
+      high: number;
+      /** N */
+      n: number;
+      /** Description */
+      description: string;
+    };
+    /** IntervalOut */
+    app__api__tracker__IntervalOut: {
+      /** Point */
+      point: number;
+      /** Low */
+      low: number;
+      /** High */
+      high: number;
+      /** N */
+      n: number;
+      /** Is Meaningful */
+      is_meaningful: boolean;
+      /** Description */
+      description: string;
+    };
   };
   responses: never;
   parameters: never;
@@ -994,6 +1094,35 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["SettlementRunOut"];
+        };
+      };
+    };
+  };
+  /**
+   * Run
+   * @description Replay a period with walk-forward refitting.
+   *
+   * Training data is restricted to fixtures that kicked off before each cutoff
+   * and odds to snapshots captured before kickoff. If anything violates that,
+   * the run fails rather than reporting a fictional edge.
+   */
+  run_api_backtest_run_post: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BacktestRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        content: {
+          "application/json": components["schemas"]["BacktestOut"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

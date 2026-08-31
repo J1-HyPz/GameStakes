@@ -13,11 +13,11 @@ recommendations; and tracks every prediction against real outcomes.
 > bet. Models can be wrong; losing runs are expected even with a real edge.
 > Nothing in this tool is financial advice.
 
-**Status: Phases 1-8 complete.** The full chain works end to end: providers
-ingest fixtures, results and odds; the football model fits and simulates; the
-bet builder prices correlated parlays and sizes stakes; and the tracker grades
-outcomes and reports calibration. Remaining sports, backtesting and final
-polish are the last phases. See [Build phases](#build-phases).
+**Status: all 11 phases complete.** Providers ingest fixtures, results and
+odds; models cover football, basketball, American football, MMA and boxing;
+the bet builder prices correlated parlays and sizes stakes; the tracker grades
+outcomes and reports calibration; and the backtester replays history with
+walk-forward refitting. See [Build phases](#build-phases).
 
 ### Data model notes
 
@@ -167,16 +167,42 @@ CI fails if `frontend/src/types/api.ts` is stale.
 | 6 | Odds ingestion, de-vigging, edge calculation | ✅ |
 | 7 | Bet builder with correlated parlay pricing | ✅ |
 | 8 | Settlement, tracker, calibration | ✅ |
-| 9 | Basketball, American football, MMA, boxing | — |
-| 10 | Backtesting harness | — |
-| 11 | Polish, TrueNAS manifest, tagged release | — |
+| 9 | Basketball, American football, MMA, boxing | ✅ |
+| 10 | Backtesting harness | ✅ |
+| 11 | Polish, TrueNAS manifest, tagged release | ✅ |
 
 ## TrueNAS SCALE
 
-A ready-to-use custom app manifest ships in Phase 11
-([`docker/truenas-app.yaml`](docker/truenas-app.yaml) is currently a stub).
-The image is multi-arch (amd64 + arm64) and published to
-`ghcr.io/j1-hypz/gamestakes`.
+Use [`docker/truenas-app.yaml`](docker/truenas-app.yaml) with **Apps → Discover
+→ Custom App → Install via YAML**. The image is multi-arch (amd64 + arm64),
+published to `ghcr.io/j1-hypz/gamestakes`, so it runs on both Intel and ARM
+systems.
+
+1. **Create datasets** for the three volumes, e.g. under
+   `/mnt/<pool>/apps/gamestakes/`: `config`, `data` and `logs`.
+2. **Note the dataset owner's UID and GID** (`ls -n` on the dataset shows
+   them) and set `PUID`/`PGID` in the manifest to match. Getting this wrong is
+   the usual cause of a permission error on first start — the container drops
+   to that user before touching the volumes.
+3. **Replace `<pool>`** in the three volume paths.
+4. **Set a bankroll** (`BANKROLL`) once you are ready to size bets — the
+   builder deliberately refuses to recommend a stake without one.
+5. Install, then open `http://<truenas-ip>:8080`.
+
+Behind a reverse proxy on a subpath, set `ROOT_PATH` (e.g. `/gamestakes`) and
+forward the `Host` and `X-Forwarded-*` headers. If the app is reachable from
+outside your LAN, set `AUTH_ENABLED=true` with an `AUTH_PASSWORD` and a
+`JWT_SECRET` (`openssl rand -hex 32`).
+
+### Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| Container restarts on start | Usually `PUID`/`PGID` not matching the dataset owner. The entrypoint logs a warning and continues if it cannot chown, then migrations fail with a clear permission error. |
+| UI loads but no fixtures | No provider keys yet. Settings → Data sources shows what each key unlocks; add one, then run the fixtures job. |
+| "No qualifying bets today" on every tier | Working as intended when nothing clears the edge thresholds. Each tier names the filter that emptied the pool. |
+| Odds stop updating | The Odds API free tier is 500 credits a month. Settings → Data sources shows remaining credits; the health check reports `degraded` below 50. |
+| Assets 404 behind a proxy | `ROOT_PATH` not set, or the proxy is stripping the subpath before forwarding. |
 
 ## License
 

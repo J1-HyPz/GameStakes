@@ -1,4 +1,5 @@
 import { NavLink, Route, Routes } from 'react-router-dom'
+import Backtest from './pages/Backtest'
 import BetBuilder from './pages/BetBuilder'
 import Dashboard from './pages/Dashboard'
 import FixtureDetail from './pages/FixtureDetail'
@@ -11,6 +12,7 @@ const NAV = [
   { to: '/schedule', label: 'Schedule' },
   { to: '/builder', label: 'Bet builder' },
   { to: '/tracker', label: 'Tracker' },
+  { to: '/backtest', label: 'Backtest' },
   { to: '/settings', label: 'Settings' },
 ]
 
@@ -55,6 +57,7 @@ export default function App() {
           <Route path="/fixtures/:id" element={<FixtureDetail />} />
           <Route path="/builder" element={<BetBuilder />} />
           <Route path="/tracker" element={<Tracker />} />
+          <Route path="/backtest" element={<Backtest />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </main>

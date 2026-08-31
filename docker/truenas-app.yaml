@@ -1,20 +1,72 @@
-# TrueNAS SCALE custom app manifest — completed in Phase 11.
-# This stub documents the intended shape; do not deploy it yet.
+# GameStakes on TrueNAS SCALE — Custom App ("Install via YAML").
 #
-# Planned: single gamestakes container (slim/SQLite by default), host-path
-# volumes for /config and /data pointing at dedicated datasets, PUID/PGID
-# matching the dataset owner, web UI on port 8080.
+# Before installing, create datasets and note their owner's UID/GID:
+#   /mnt/<pool>/apps/gamestakes/config
+#   /mnt/<pool>/apps/gamestakes/data
+#   /mnt/<pool>/apps/gamestakes/logs
+# Then set PUID/PGID below to match that owner, and replace <pool> throughout.
+#
+# This is the slim configuration: one container, SQLite, no Redis. It is the
+# right default for a home server — the database is small and the app is
+# single-user. Switch to PostgreSQL only if you want multiple workers.
+#
+# Provider API keys go in the environment block. Without them the app still
+# runs and the UI shows which features are unavailable.
 services:
   gamestakes:
     image: ghcr.io/j1-hypz/gamestakes:latest
+    container_name: gamestakes
     restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
+      # --- storage -----------------------------------------------------
       DATABASE_URL: sqlite+aiosqlite:////data/gamestakes.db
+      DATA_DIR: /data
+
+      # --- ownership: must match the dataset owner ---------------------
       PUID: "1000"
       PGID: "1000"
+
+      # --- display -----------------------------------------------------
+      TIMEZONE: Europe/London
+      CURRENCY: GBP
+      LOG_LEVEL: INFO
+
+      # --- staking: set a bankroll before the builder will size a bet --
+      BANKROLL: "0"
+      KELLY_MULTIPLIER: "0.25"
+      DAILY_EXPOSURE_CAP: "0.05"
+      WEEKLY_EXPOSURE_CAP: "0.15"
+
+      # --- provider keys (optional; see .env.example for where to get) --
+      # FOOTBALL_DATA_ORG_KEY: ""
+      # THE_ODDS_API_KEY: ""
+      # ODDS_REGION: "uk"
+      # BALLDONTLIE_KEY: ""
+      # THESPORTSDB_KEY: ""
+
+      # --- behind a reverse proxy on a subpath --------------------------
+      # ROOT_PATH: /gamestakes
+
+      # --- optional single-user login (recommended if exposed) ----------
+      # AUTH_ENABLED: "true"
+      # AUTH_PASSWORD: "change-me"
+      # JWT_SECRET: "generate with: openssl rand -hex 32"
     volumes:
-      - /mnt/tank/apps/gamestakes/config:/config
-      - /mnt/tank/apps/gamestakes/data:/data
-      - /mnt/tank/apps/gamestakes/logs:/logs
+      - /mnt/<pool>/apps/gamestakes/config:/config
+      - /mnt/<pool>/apps/gamestakes/data:/data
+      - /mnt/<pool>/apps/gamestakes/logs:/logs
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import sys, urllib.request
+          sys.exit(0 if urllib.request.urlopen(
+              "http://127.0.0.1:8080/api/health", timeout=4).status == 200 else 1)
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3

@@ -21,6 +21,8 @@ export type TrackedBet = Schemas['TrackedBetOut']
 export type TrackBetIn = Schemas['TrackBetIn']
 export type Metrics = Schemas['MetricsResponse']
 export type Prediction = Schemas['PredictionOut']
+export type BacktestResult = Schemas['BacktestOut']
+export type BacktestRequest = Schemas['BacktestRequest']
 
 // TODO(Phase 11): derive the base from ROOT_PATH for subpath reverse proxies.
 const API_BASE = '/api'
@@ -128,3 +130,10 @@ export const runSettlement = () =>
 
 export const fetchPrediction = (fixtureId: number) =>
   request<Prediction>(`/fixtures/${fixtureId}/prediction`)
+
+export const runBacktest = (body: BacktestRequest) =>
+  request<BacktestResult>('/backtest/run', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
