@@ -223,9 +223,16 @@ class FixtureIngestor:
             team = Team(sport_id=sport_id, name=name, normalized_name=normalize_name(name))
             self.session.add(team)
             await self.session.flush()
+            # Resolve again so the alias is learned from the now-existing team.
             await self.resolver.resolve_team(
                 provider, name, sport_id, external_id=external_id, league_id=league_id
             )
+            # Close the queue item the first attempt opened. Without this, every
+            # team ever auto-created leaves a pending entry behind, and the one
+            # screen meant for genuine ambiguity fills with hundreds of rows
+            # that need no decision — which is the same as having no queue.
+            if resolution.queue_item_id is not None:
+                await self.resolver.close_auto_created(resolution.queue_item_id, team.id)
             return team.id
         return None
 

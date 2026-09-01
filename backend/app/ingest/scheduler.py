@@ -114,9 +114,7 @@ def build_scheduler() -> AsyncIOScheduler:
 
     scheduler.add_job(
         ingest_upcoming_fixtures,
-        IntervalTrigger(
-            hours=settings.fixtures_refresh_hours, start_date=first_run(1)
-        ),
+        IntervalTrigger(hours=settings.fixtures_refresh_hours, start_date=first_run(1)),
         id="fixtures",
         name="Refresh upcoming fixtures",
         max_instances=1,
@@ -124,9 +122,7 @@ def build_scheduler() -> AsyncIOScheduler:
     )
     scheduler.add_job(
         ingest_recent_results,
-        IntervalTrigger(
-            hours=settings.results_refresh_hours, start_date=first_run(4)
-        ),
+        IntervalTrigger(hours=settings.results_refresh_hours, start_date=first_run(4)),
         id="results",
         name="Refresh recent results",
         max_instances=1,
@@ -142,9 +138,7 @@ def build_scheduler() -> AsyncIOScheduler:
     )
     scheduler.add_job(
         refresh_predictions,
-        IntervalTrigger(
-            hours=settings.predictions_refresh_hours, start_date=first_run(12)
-        ),
+        IntervalTrigger(hours=settings.predictions_refresh_hours, start_date=first_run(12)),
         id="predictions",
         name="Refresh predictions",
         max_instances=1,
@@ -152,9 +146,7 @@ def build_scheduler() -> AsyncIOScheduler:
     )
     scheduler.add_job(
         settle_finished,
-        IntervalTrigger(
-            hours=settings.results_refresh_hours, start_date=first_run(15)
-        ),
+        IntervalTrigger(hours=settings.results_refresh_hours, start_date=first_run(15)),
         id="settle",
         name="Settle finished fixtures",
         max_instances=1,

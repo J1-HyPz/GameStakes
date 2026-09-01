@@ -259,3 +259,58 @@ async def test_unknown_league_raises_clearly(db_session: AsyncSession) -> None:
     provider = FakeProvider()
     with pytest.raises(ValueError, match="unknown league"):
         await _ingestor(db_session, provider).ingest_league("not-a-league", START, END)
+
+
+async def test_auto_created_teams_do_not_leave_the_queue_full(
+    db_session: AsyncSession,
+) -> None:
+    """Resolution opens a queue item before the ingestor decides what to do.
+    When it goes on to create the team itself, that item describes a question
+    already answered — leaving it would bury real ambiguity under one row per
+    team ever seen.
+    """
+    from app.db.enums import ResolutionStatus
+    from app.db.models import ResolutionQueueItem
+
+    before = len(
+        (
+            await db_session.execute(
+                select(ResolutionQueueItem).where(
+                    ResolutionQueueItem.status == ResolutionStatus.PENDING
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    provider = FakeProvider(fixtures=[_fixture("q1", "Queueclean Athletic", "Queueclean Rangers")])
+    counts = await _ingestor(db_session, provider).ingest_league("premier-league", START, END)
+    assert counts["upserted"] == 1, "both teams should have been created"
+
+    after = (
+        (
+            await db_session.execute(
+                select(ResolutionQueueItem).where(
+                    ResolutionQueueItem.status == ResolutionStatus.PENDING
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(after) == before, "auto-created teams must not leave pending items"
+
+    resolved = (
+        (
+            await db_session.execute(
+                select(ResolutionQueueItem).where(
+                    ResolutionQueueItem.raw_name == "Queueclean Athletic"
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert resolved and resolved[0].status == ResolutionStatus.RESOLVED
+    assert resolved[0].resolved_entity_id is not None

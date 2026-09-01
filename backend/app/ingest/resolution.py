@@ -326,6 +326,26 @@ class EntityResolver:
         item.resolved_at = datetime.now(UTC)
         return item
 
+    async def close_auto_created(
+        self, queue_item_id: int, entity_id: int
+    ) -> ResolutionQueueItem | None:
+        """Close a queue item whose entity the ingestor went on to create.
+
+        Resolution opens a queue item before the caller decides what to do. When
+        nothing resembled the name, the ingestor creates the entity itself — a
+        safe move, since there was nothing to confuse it with — and the open
+        item then describes a question that has already been answered. Leaving
+        it would bury real ambiguity under one row per team ever seen.
+        """
+        item = await self.session.get(ResolutionQueueItem, queue_item_id)
+        if item is None or item.status != ResolutionStatus.PENDING:
+            return item
+        item.status = ResolutionStatus.RESOLVED
+        item.resolved_entity_id = entity_id
+        item.resolved_at = datetime.now(UTC)
+        item.context = {**(item.context or {}), "closed_by": "auto-created on first sighting"}
+        return item
+
     async def ignore(self, queue_item_id: int) -> ResolutionQueueItem:
         item = await self.session.get(ResolutionQueueItem, queue_item_id)
         if item is None:
