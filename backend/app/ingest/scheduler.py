@@ -91,12 +91,32 @@ async def settle_finished() -> None:
 
 
 def build_scheduler() -> AsyncIOScheduler:
+    """Schedule the recurring jobs, each with a first run shortly after startup.
+
+    An IntervalTrigger without a start_date fires its *first* run one whole
+    interval after the scheduler starts — so a fresh container would sit idle
+    for six hours before fetching a single fixture, which reads as "I added my
+    keys and nothing happened". Each job therefore gets an explicit first run a
+    few minutes out.
+
+    The offsets stagger in dependency order — fixtures before the odds that
+    attach to them, results before the predictions that train on them — and
+    spread the load so five jobs do not hit rate-limited providers at once.
+
+    Note that a restart re-triggers this initial round. That is cheap for
+    fixtures and results, and deliberately later for odds, which cost credits.
+    """
     settings = get_settings()
     scheduler = AsyncIOScheduler(timezone=settings.timezone)
 
+    def first_run(minutes: float) -> datetime:
+        return datetime.now(UTC) + timedelta(minutes=minutes)
+
     scheduler.add_job(
         ingest_upcoming_fixtures,
-        IntervalTrigger(hours=settings.fixtures_refresh_hours),
+        IntervalTrigger(
+            hours=settings.fixtures_refresh_hours, start_date=first_run(1)
+        ),
         id="fixtures",
         name="Refresh upcoming fixtures",
         max_instances=1,
@@ -104,7 +124,9 @@ def build_scheduler() -> AsyncIOScheduler:
     )
     scheduler.add_job(
         ingest_recent_results,
-        IntervalTrigger(hours=settings.results_refresh_hours),
+        IntervalTrigger(
+            hours=settings.results_refresh_hours, start_date=first_run(4)
+        ),
         id="results",
         name="Refresh recent results",
         max_instances=1,
@@ -112,7 +134,7 @@ def build_scheduler() -> AsyncIOScheduler:
     )
     scheduler.add_job(
         refresh_odds,
-        IntervalTrigger(hours=settings.odds_refresh_hours),
+        IntervalTrigger(hours=settings.odds_refresh_hours, start_date=first_run(8)),
         id="odds",
         name="Snapshot odds",
         max_instances=1,
@@ -120,7 +142,9 @@ def build_scheduler() -> AsyncIOScheduler:
     )
     scheduler.add_job(
         refresh_predictions,
-        IntervalTrigger(hours=settings.predictions_refresh_hours),
+        IntervalTrigger(
+            hours=settings.predictions_refresh_hours, start_date=first_run(12)
+        ),
         id="predictions",
         name="Refresh predictions",
         max_instances=1,
@@ -128,7 +152,9 @@ def build_scheduler() -> AsyncIOScheduler:
     )
     scheduler.add_job(
         settle_finished,
-        IntervalTrigger(hours=settings.results_refresh_hours),
+        IntervalTrigger(
+            hours=settings.results_refresh_hours, start_date=first_run(15)
+        ),
         id="settle",
         name="Settle finished fixtures",
         max_instances=1,
